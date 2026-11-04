@@ -1,0 +1,42 @@
+name: Validate simplified CSV stdout
+on:
+  push:
+    branches:
+      - codex-ci/trafilatura1060-simplify-20261104-331fefb
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: GoldArowana/trafilatura
+          ref: 331fefbdf7bb59be2bbe757eefe88768b685598c
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Assert exact source
+        run: |
+          test "$(git rev-parse HEAD)" = "331fefbdf7bb59be2bbe757eefe88768b685598c"
+          git show -s --format='source=%H tree=%T parents=%P'
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13.17'
+      - name: Install project dev requirements
+        run: python -m pip --disable-pip-version-check --no-cache-dir install -e ".[dev]"
+      - name: Record resolved versions
+        run: |
+          python --version
+          python -m pip freeze
+      - name: CLI regression coverage
+        run: python -m pytest tests/cli_tests.py -q
+      - name: Full Python test suite
+        run: python -m pytest -q
+      - name: Complete type and style checks
+        run: |
+          mypy -p trafilatura
+          ruff check .
+          ruff format --check .
+      - name: Confirm source unchanged
+        run: git diff --exit-code
